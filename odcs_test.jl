@@ -30,20 +30,21 @@ close(f)
 n = Int(numbers[1])
 m = Int(numbers[2])
 r = Int(numbers[3])
+level(2) && @show n, m, r
 pos = 4
-@show numbers
-@show n, m, r
 for a = 1:m
 	push!(ps, Int(numbers[pos]) + 1)
 	push!(pt, Int(numbers[pos + 1]) + 1)
 	push!(pv, numbers[pos + 2])
 	pos += 3
 end
+level(2) && @show ps, pt, pv
 for e = 1:r
 	push!(ri, Int(numbers[pos]) + 1)
 	push!(rj, Int(numbers[pos + 1]) + 1)
 	pos += 2
 end
+level(2) && @show ri, rj
 
 # call the separation function
 ncuts, cutSets = odcs_separate(n, m, r, ps, pt, pv, ri, rj, max_cuts, 0.001)

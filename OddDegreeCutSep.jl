@@ -6,7 +6,9 @@
 
 using DataStructures
 
-const PRINT_VIOLATIONS = true
+const PRINT_LEVEL = 1
+
+level(l::Int) = (l <= PRINT_LEVEL) 
 
 const ValueScale = 1e6
 const Infinity = 1000000000
@@ -29,10 +31,10 @@ function Graph(n::Int, m::Int, r::Int, ps::Vector{Int}, pt::Vector{Int}, pv::Vec
 	# add the arcs to the graph
 	for a = 1:m
 		push!(g.adj[ps[a]], pt[a])
-		push!(g.val[ps[a]], Int(ValueScale * pv[a]))
+		push!(g.val[ps[a]], Int(trunc(ValueScale * pv[a])))
 		push!(g.opp[ps[a]], length(g.opp[pt[a]])+1)
 		push!(g.adj[pt[a]], ps[a])
-		push!(g.val[pt[a]], Int(ValueScale * pv[a]))
+		push!(g.val[pt[a]], Int(trunc(ValueScale * pv[a])))
 		push!(g.opp[pt[a]], length(g.opp[ps[a]]))
     end
 
@@ -153,6 +155,7 @@ function intersect!(A::Vector{Int}, B::Vector{Bool}, complB::Bool)
 		end
 	end
 	resize!(A, l)
+	level(3) && @show A
 end
 
 # check if a belongs to set A represented as a sorted list
@@ -189,7 +192,7 @@ end
 # @param max_cuts maximum number of cuts to be separated
 # @param minViol minimum violation required to add a new cut
 # @return number of separated cuts, list of vertices indices for each separated cut.
-function odcs_separate(instance::Graph, max_cuts::Int, min_viol::Float64)::Tuple{Int, Vector{Vector{Int}}}
+function odcs_separate(instance::Graph, maxCuts::Int, minViol::Float64)::Tuple{Int, Vector{Vector{Int}}}
 	# build a list of marked vertices
 	mv = Vector{Int}()
 	for i = 1:instance._n
@@ -205,6 +208,8 @@ function odcs_separate(instance::Graph, max_cuts::Int, min_viol::Float64)::Tuple
 		return 0
 	end
 	ncuts = 0
+	
+	level(2) && @show instance
 
 	# add the first minimum cut between the first two marked vertices
 	treeEdges = Vector{Tuple{Int, Int, Int}}()
@@ -212,6 +217,10 @@ function odcs_separate(instance::Graph, max_cuts::Int, min_viol::Float64)::Tuple
 	cutVal, currCut = findMinCut(instance, mv[1], mv[2])
 	push!(minCuts, currCut)
 	push!(treeEdges, (mv[1], mv[2], cutVal))
+
+	level(2) && @show mv
+	level(2) && @show cutVal
+	level(2) && @show currCut
 
 	# iterate adding one remaining vertex at a time
 	ll = length(mv)
@@ -221,6 +230,10 @@ function odcs_separate(instance::Graph, max_cuts::Int, min_viol::Float64)::Tuple
 		for k = 1:(l - 1)
 			push!(cand, mv[k])
 		end
+
+		level(2) && @show l
+		level(2) && @show cand
+		level(2) && @show treeEdges
 
 		# find the tree vertex to connect to mv[l]
 		while length(cand) > 1
@@ -238,8 +251,13 @@ function odcs_separate(instance::Graph, max_cuts::Int, min_viol::Float64)::Tuple
 				end
 			end
 
+			level(2) && @show minVal
+			level(2) && @show best_q
+
 			# filter the candidate by the vertices in the same side of the cut as mv(l)
-			intersect(cand, minCuts[best_q], !minCuts[best_q][mv[l]])
+			intersect!(cand, minCuts[best_q], !minCuts[best_q][mv[l]])
+			
+			level(2) && @show cand
 		end
 		@assert !isempty(cand)
 
@@ -248,6 +266,9 @@ function odcs_separate(instance::Graph, max_cuts::Int, min_viol::Float64)::Tuple
 		push!(minCuts, currCut)
 		push!(treeEdges, (cand[1], mv[l], cutVal))
 
+		level(2) && @show cutVal
+		level(2) && @show currCut
+		
 		# check if the current cut is valid and violated
 		count = 0
 		kk = length(mv)
@@ -259,22 +280,20 @@ function odcs_separate(instance::Graph, max_cuts::Int, min_viol::Float64)::Tuple
 		if (count % 2) == 1
 			viol = 1.0 - (Float64(cutVal) / ValueScale)
 			if viol >= minViol
-				if PRINT_VIOLATIONS 
-					println("Found cut with violation $viol", "!")
-				end
+				level(1) && println("Found cut with violation $viol", "!")
 				
 				# add the cut
 				push!(cutSets, Vector{Int}());
+				ncuts += 1
 				for i = 1:instance._n
 					if currCut[i]
 						push!(cutSets[ncuts], i)
 					end
 				end
-				ncuts += 1
 
 				# stop if reached the maximum number of separated cuts
-				if ncuts == max_cuts
-					return max_cuts
+				if ncuts == maxCuts
+					return maxCuts
 				end
 			end
 		end
